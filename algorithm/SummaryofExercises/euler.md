@@ -63,18 +63,9 @@ $$
 > 2.然而a^b非常大，直接求a^b的欧拉函数会超时，因此我们可以进行简单的推到：
 
 $$
-1.对a分解质因数: \\
 a = p1 ^ {a1} \cdot p2 ^ {a2} \cdot ... \cdot pk ^ {ak}  \\
-$$
-
-$$
-2.那么显然有： \\
-a^b = (p1 ^ {a1} \cdot p2 ^ {a2} \cdot ... \cdot pk ^ {ak})^b = p1 ^ {b \cdot a1} \cdot p2 ^ {b \cdot a2} \cdot ... \cdot pk ^ {b \cdot ak} \\
-$$
-
-$$
-3.所以f(a^b)的值如下：\\
-f(a^b) = a^b \cdot (1 - \frac{1}{p1}) \cdot (1 - \frac{1}{p2}) \cdot ... \cdot (1 - \frac{1}{pk}) = a^{b-1} \cdot a \cdot (1 - \frac{1}{p1}) \cdot (1 - \frac{1}{p2}) \cdot ... \cdot (1 - \frac{1}{pk})
+a^b = (p1 ^ {a1} \cdot p2 ^ {a2} \cdot ... \cdot pk ^ {ak})^b = p1 ^ {b \cdot a1} \cdot p2 ^ {b \cdot a2} \cdot ... \cdot pk ^ {b \cdot ak} \\
+f(a^b) = a^b \cdot (1 - \frac{1}{p1}) \cdot (1 - \frac{1}{p2}) \cdot ... \cdot (1 - \frac{1}{pk}) = a^{b-1} \cdot a \cdot (1 - \frac{1}{p1}) \cdot (1 - \frac{1}{p2}) \cdot ... \cdot (1 - \frac{1}{pk}) \\
 $$
 
 > 3.所以直接对a分解质因数，时间复杂度为 o(sqrt(a))；然后再用快速幂求a^b，时间复杂度为o(logb), 总的时间复杂度就为o(sqrt(a)) + o(logb)。其中，快速幂是快速得出 a ^ b mod p的结果。
