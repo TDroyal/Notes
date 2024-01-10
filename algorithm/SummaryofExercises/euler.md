@@ -64,7 +64,13 @@ $$
 
 $$
 a = p1 ^ {a1} \cdot p2 ^ {a2} \cdot ... \cdot pk ^ {ak}  \\
+$$
+
+$$
 a^b = (p1 ^ {a1} \cdot p2 ^ {a2} \cdot ... \cdot pk ^ {ak})^b = p1 ^ {b \cdot a1} \cdot p2 ^ {b \cdot a2} \cdot ... \cdot pk ^ {b \cdot ak} \\
+$$
+
+$$
 f(a^b) = a^b \cdot (1 - \frac{1}{p1}) \cdot (1 - \frac{1}{p2}) \cdot ... \cdot (1 - \frac{1}{pk}) = a^{b-1} \cdot a \cdot (1 - \frac{1}{p1}) \cdot (1 - \frac{1}{p2}) \cdot ... \cdot (1 - \frac{1}{pk}) \\
 $$
 
