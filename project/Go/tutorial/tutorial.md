@@ -266,18 +266,20 @@ func main() {
 
 	a := 3
 	b, c, d, e := 0, 1, 2, 3
-	res1, res2, res3, res4 := a&^b, a&^c, a&^d, a&^e
+	res1, res2, res3, res4 := a&^b, a&^c, a&^d, a&^e     //把a中与bcde共有的bit 1减掉
 	fmt.Printf("%d %d %d %d", res1, res2, res3, res4) // 3 2 1 0
+    // res1, res2, res3, res4 := b&^a, c&^a, d&^a, e&^a
+	// fmt.Printf("%d %d %d %d", res1, res2, res3, res4) // 0 0 0 0
 }
 ```
 
-- 杂项运算符：`&`：取地址运算符，`*`：指针运算符，和`c/c++`里面的作用一致。
+- 杂项运算符：`&`：取地址运算符，`*`：指针运算符，和`c/c++`里面的作用一致。`<-`：该运算符的名称为接收。它用于从通道接收值。
 
 #### 2.7类型转换
 
 - c/c++,java之类的静态类型语言提供了对隐式类型转换的支持，但是**Golang不支持自动类型转换或隐式类型转换**。对于类型转换，必须执行**显式转换**。
 
-显示转换的语法和c/c++也有一定区别，强制转换的类型没有了括号：`type(val)`
+显示转换的语法和c/c++也有一定区别，语法为：`type(val)`，其中`(val)`括号不可去掉，`type`可加上括号，如`(int32)(val)`，其中`val`为变量。
 
 ```go
 var nhooo1 int = 845
@@ -605,7 +607,13 @@ func main() {
 
 #### 4.2变参函数
 
-定义：允许用户在变参函数中传递零个或多个参数。其中`fmt.Printf`是可变参数函数的示例。
+**当我们使用可变参数函数时：**
+
+- 当您要在函数中传递**切片**时，使用可变参数函数。
+- 当我们**不知道参数的数量**时，使用可变参数函数。
+- 在程序中使用可变参数函数时，它可以**增加程序的可读性**。
+
+**定义：**允许用户在变参函数中传递零个或多个参数。其中`fmt.Printf`是可变参数函数的示例。
 
 ```go
 package main
@@ -623,6 +631,95 @@ func main() {
 /*
 Iloveyou
 AEIOU
+*/
+```
+
+- 在可变参数函数的声明中，只能在最后一个参数的类型前面带有省略号`...`，它表明该函数可以调用任意数量的这种类型的参数。
+- `...type`的行为类似于切片（`slice`）。例如，fun(b ...int)，现在`...int`等价于`[]int`。
+- 还可以在可变参数函数中传递现有切片。
+- 不能将可变参数用作返回值，但可以将其作为切片返回。
+
+```go
+package main
+
+import "fmt"
+
+func fun(a string, b ...int) {
+	fmt.Printf("%s\n", a)
+	fmt.Printf("%d\n", b)
+}
+
+func main() {
+
+	fun("hello", 2, 3, 4)
+}
+/*
+hello
+[2 3 4]
+*/
+```
+
+- 传入多个同类型的参数
+
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+func fun(a ...string) {
+	fmt.Printf("%s\n", a)
+	for idx, str := range a {
+		fmt.Printf("%d %s\n", idx, str)
+	}
+	fmt.Printf("%s", strings.Join(a, "---"))   //切片中的字符串以---隔开
+}
+
+func main() {
+
+	fun("hello", "royal_111")
+}
+/*
+[hello royal_111]
+0 hello
+1 royal_111
+hello---royal_111
+*/
+```
+
+- 可变参数中传递一个切片
+
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+func fun(a ...string) {
+	fmt.Printf("%s\n", a)
+	for idx, str := range a {
+		fmt.Printf("%d %s\n", idx, str)
+	}
+	fmt.Printf("%s", strings.Join(a, " "))
+}
+
+func main() {
+
+    // 在可变函数中传递一个切片
+	str := []string{"welcome", "royal_111", "to", "Go"}
+	fun(str...)  // 注意传入切片的方式，后面加了...
+}
+/*
+[welcome royal_111 to Go]
+0 welcome
+1 royal_111
+2 to
+3 Go
+welcome royal_111 to Go
 */
 ```
 
@@ -658,7 +755,7 @@ func main() {
 
 package main
 import "fmt"
-var my_function func(str string) = func(str string) {  //匿名函数赋值给my_function变量
+var my_function func(string) = func(str string) {  //匿名函数赋值给my_function变量
 	fmt.Printf("%s\n", str)
 }
 func main() {
@@ -844,13 +941,13 @@ import "fmt"
 
 type Integer int
 
-func (a Integer) add(b Integer) (c Integer) { //cannot define new methods on non-local type int
+func (a Integer) add(b Integer) (c Integer) { 
 	c = a + b
 	return
 }
 
 func main() {
-	a := Integer(5)
+	a := Integer(5)   //必须强转类型一致
 	var b Integer = 4
 	fmt.Println(a.add(3), b.add(6)) //5 + 3   4 + 6
 }
@@ -859,7 +956,7 @@ func main() {
 */
 ```
 
-- **方法可以接受指针和值：一点都不符合规范**。在Go中，当一个函数具有值参数时，它将仅接受参数的值，如果您尝试将指针传递给值函数，则它将不接受，反之亦然。但是Go方法可以接受值和指针，无论它是使用指针还是值接收器定义的。
+- **方法可以接受指针和值：一点都不符合规范**。在Go中，当一个函数具有值参数时，它将仅接受参数的值，如果您尝试将指针传递给值函数，则它将不接受，反之亦然。**但是Go方法**可以接受**值和指针**，无论它是使用指针还是值接收器定义的。
 
 ```go
 package main
@@ -994,7 +1091,7 @@ type User struct {
 //声明一个用户类型的变量，默认情况下初值为""或0
 var a User
 
-//使用User来初始化user类型的变量
+//使用结构字面量User来初始化User类型的变量
 var b = User{"royal_111", "123456", 22}
 
 //还可以对部分成员变量初始化,其它未初始化的默认为对应的零
@@ -1036,7 +1133,7 @@ royal_111 300000
 */
 ```
 
-- 同类型的结构体变量判断是否相等可以直接使用`==`进行判断，也可以使用`reflect`包下的`DeeplyEqual()`方法。
+- 同类型的结构体变量判断是否相等可以直接使用`==`进行判断，也可以使用`reflect`包下的`DeepEqual()`函数。
 
 ```go
 type User struct {
@@ -1059,7 +1156,7 @@ if u1 == u2 {
 }
 
 //DeeplyEquel()
-if reflect.DeeplyEquel(u1, u2) {
+if reflect.DeepEquel(u1, u2) {
     ...
 }
 
@@ -1212,7 +1309,7 @@ func main() {
 ```go
 var arr_name [const_length]type
 //例如：定义一个长度为100的整数数组a
-var a [100]int
+var a [100]int   //名称  大小  类型
 ```
 
 ```go
@@ -1297,7 +1394,7 @@ func main() {
 */
 ```
 
-- 在数组中，你可以使用`len()`方法获取数组的长度。
+- 在数组中，你可以使用`len()`函数获取数组的长度。
 - 创建大小已确定的数组，根据其中元素的数量确定，使用省略号`...`，如下所示
 
 ```go
@@ -1308,7 +1405,7 @@ a := []int{-1, 0, 1, 0}   //这种有很多问题
 len(a)  //4
 ```
 
-- **将一个数组用等号赋值给另一个数组时，新数组发生改变并不会影响原数组，原数组依旧不变。**
+- **将一个数组用等号赋值给另一个数组时，新数组发生改变并不会影响原数组，原数组依旧不变。在c++中，数组名代表首地址，而在go语言中，数组名不是引用类型。**
 
 ```go
 package main
@@ -1392,14 +1489,35 @@ func main() {
 	a[1] = 3333
 	fmt.Printf("%T %T\n", b, a)  //类型不一致，不能判断==是否相等
 	fmt.Println(b, a)
+    fmt.Println(*b)    //解引用
+    fmt.Println(a == *b)
 }
 /*
+
 *[3]int [3]int
 &[10000000 3333 3] [10000000 3333 3]
+[10000000 3333 3]
+true
 */
 ```
 
 #### 6.3函数参数
+
+**语法：**
+
+```go
+//对于指定大小的数组
+func function_name(variable_name [size]type){
+// Code
+}
+
+//对于无大小的数组（切片）
+func function_name(variable_name []type){
+// Code
+}
+```
+
+**例如：**
 
 ```go
 package main
@@ -1442,7 +1560,7 @@ func main() {
 
 #### 6.4切片(Slice)
 
-在Go语言中，切片比数组更强大，灵活，方便，并且是轻量级的数据结构。slice是一个可变长度序列，用于存储相同类型的元素，不允许在同一slice中存储不同类型的元素。就像具有索引值和长度的数组一样，但是切片的大小可以调整，切片不像数组那样处于固定大小。在内部，切片和数组相互连接，切片是对基础数组的引用。允许在切片中存储重复元素。***切片中的第一个索引位置始终为0，而最后一个索引位置将为（切片的长度– 1）\***。
+在Go语言中，切片比数组更强大，灵活，方便，并且是轻量级的数据结构。slice是一个可变长度序列，用于存储相同类型的元素，不允许在同一slice中存储不同类型的元素。就像具有索引值和长度的数组一样，但是切片的大小可以调整，切片不像数组那样处于固定大小。在内部，切片和数组相互连接，切片是对基础数组的引用。允许在切片中存储重复元素。**切片中的第一个索引位置始终为0，而最后一个索引位置将为（切片的长度– 1）**。
 
 - **切片声明（创建切片）：跟数组一样，但是有一个区别，即不允许您在方括号[]中指定切片的大小。因此它的长度可以根据需要增长或缩小。**
 
@@ -1455,7 +1573,6 @@ var a = []int{1,2,3}
 ```
 
 - **切片的组成：**
-
 - - **指针：**指针用于指向可通过切片访问的数组的第一个元素。在这里，指向的元素不必是数组的第一个元素。
 - - **长度：**长度是数组中存在的元素总数。
 - - **容量：**容量表示可以扩展的最大大小。
@@ -1515,9 +1632,422 @@ a[:]
 a[1:2]
 ```
 
-- **使用make()函数：**您还可以使用go库提供的*make()函数*创建切片。此函数采用三个参数，即类型，长度和容量。在此，容量值是可选的。它为底层数组分配的大小等于给定的容量，并返回一个切片，该切片引用底层数组。通常，make()函数用于创建一个空切片。在这里，空切片是包含空数组引用的那些切片。
+- **使用make()函数：**您还可以使用go库提供的*make()函数*创建切片。此函数采用三个参数，即类型，长度和容量。在此，**容量值是可选的**。它为底层数组分配的大小等于给定的容量，并返回一个切片，该切片引用底层数组。通常，make()函数用于创建一个空切片。在这里，空切片是包含空数组引用的那些切片。
+
+```go
+// 语法：
+func make([]type, len, cap) []type          // 3个参数，类型、长度、容量（底层数组的长度）
+```
 
 
+
+
+
+- **创建和初始化切片：**
+
+```go
+// 1. 使用切片字面量
+var slice_1 = []int{1, 2, 3}
+
+// 2. 使用数组：切片是数组的引用，因此可以根据给定的数组创建切片
+arr := [...]int{1, 2, 3}    //arr数组
+slice_1 := arr[0:]   //[1, 2, 3]
+slice_2 := arr[:2]   //[1, 2]
+slice_3 := arr[:]    //[1, 2, 3]   下限默认值为0，上限默认值为切片中元素总量，即[:]与[0:3]等价
+
+// 3. 使用已存在的切片
+slice_origin := []int{1, 2, 3, 4}
+slice_1 := slice_origin[0: 2]   // [1, 2]
+slice_2 := slice_1[:1]   //[1]
+
+// 4. 使用make()函数
+sli := make([]int, 3, 7)
+fmt.Printf("slice:%v\nlength=%d\ncapacity=%d\n", sli, len(sli), cap(sli))
+/*
+slice:[0 0 0]
+length=3
+capacity=7
+*/
+
+sli_2 := make([]int, 7)
+fmt.Printf("slice:%v\nlength=%d\ncapacity=%d\n", sli_2, len(sli_2), cap(sli_2))
+
+/*
+slice:[0 0 0 0 0 0 0]
+length=7
+capacity=7
+*/
+
+arr := [...]int{1, 2, 3, 4}
+sli_3 := arr[2:3]
+fmt.Printf("slice:%v\nlength=%d\ncapacity=%d\n", sli_3, len(sli_3), cap(sli_3))
+
+/*
+slice:[3]
+length=1
+capacity=2      //我理解的capacity是当前切片的开头位置到对应(引用)的底层数组最后一个位置之间的容量
+*/
+```
+
+- **切片的要点：**
+
+```go
+// 1.零值切片：
+var slice []string
+fmt.Printf("Length = %d\n", len(myslice)) 
+fmt.Printf("Capacity = %d ", cap(myslice))
+
+/*
+Length = 0
+Capacity = 0
+*/
+
+// 2.修正Slice：修改Slice：正如我们已经知道slice是引用类型一样，它可以引用基础数组。因此，如果我们更改切片中的某些元素，则更改也应发生在引用数组中。换句话说，如果您对切片进行了任何更改，则切片也会反映在数组中
+arr := [...]int{1, 2, 3, 4, 5}
+myslice := arr[1:4]
+
+fmt.Printf("%v\n%v\n", arr, myslice)
+for i := 0; i < len(myslice); i++ {
+	myslice[i] += 10
+}
+fmt.Printf("%v\n%v\n", arr, myslice)
+
+/*
+[1 2 3 4 5]
+[2 3 4]
+[1 12 13 14 5]
+[12 13 14]
+*/
+
+// 3.切片的比较：在切片中，您只能使用==运算符检查给定切片是否存在。如果尝试在==运算符的帮助下比较两个切片，则会抛出错误
+s1 := []int{12, 34, 56} 
+var s2 []int
+s3:= []int{23, 45, 66} 
+// fmt.Println(s1==s3) //不能比较两个切片，会报错
+
+//检查给定的片是否为nil
+fmt.Println(s1 == nil)   //false
+fmt.Println(s2 == nil)   //true
+
+// 4.多维切片：多维切片与多维数组一样，只是切片不包含大小
+s1 := [][]int{
+	{1, 2},
+	{3, 4},
+	{5, 6},
+}
+
+fmt.Printf("%v", s1)  // [[1 2] [3 4] [5 6]]
+
+// 5.切片排序：在Go语言中，可以对切片中存在的元素进行排序。  Go语言的标准库提供了sort包，其中包含用于对int，float64和字符串切片进行排序的不同类型的排序方法。 这些函数始终按升序对可用元素进行切片排序。
+package main
+
+import (
+	"fmt"
+	"sort"   //导入包
+)
+
+func main() {
+
+	s1 := []string{"bc", "b", "abc", "Bc"}
+
+	a := []int{3, 2, 7, 9}
+
+	b := []float64{2, 7, 99.4, 7.001}
+
+	sort.Strings(s1)
+	sort.Ints(a)
+	sort.Float64s(b)
+
+	fmt.Println(s1, a, b)
+}
+/*
+[Bc abc b bc] [2 3 7 9] [2 7 7.001 99.4]
+*/
+```
+
+#### 6.5切片复制
+
+在切片中，您可以使用Go语言提供的**copy()函数**将一个切片复制到另一个切片中。换句话说，通过copy()函数可以将一个切片的元素复制到另一切片中。
+
+**语法：**src -> dst
+
+```go
+func copy(dst, src []type) int     //返回要复制的元素数量，为min(len(dst), len(src))
+```
+
+**举例：**
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+
+	//创建切片
+	slc1 := []int{58, 69, 40, 45, 11, 56, 67, 21, 65}
+	var slc2 []int  //nil切片
+	slc3 := make([]int, 5)
+	slc4 := []int{78, 50, 67, 77}
+
+	//复制之前
+	fmt.Println("Slice_1:", slc1)
+	fmt.Println("Slice_2:", slc2)
+	fmt.Println("Slice_3:", slc3)
+	fmt.Println("Slice_4:", slc4)
+
+	//复制切片
+	copy_1 := copy(slc2, slc1)
+	fmt.Println("\nSlice:", slc2)
+	fmt.Println("复制的元素总数:", copy_1)
+
+	copy_2 := copy(slc3, slc1)
+	fmt.Println("\nSlice:", slc3)
+	fmt.Println("复制的元素总数:", copy_2)
+
+	copy_3 := copy(slc4, slc1)
+	fmt.Println("\nSlice:", slc4)
+	fmt.Println("复制的元素总数:", copy_3)
+
+	//这里不要混淆，因为在上面
+	//复制了slc4的代码行
+	//并因此进行永久修改，即
+	// slc 4包含[58 69 40 45]
+	copy_4 := copy(slc1, slc4)
+	fmt.Println("\nSlice:", slc1)
+	fmt.Println("复制的元素总数:", copy_4)
+}
+
+/*
+Slice_1: [58 69 40 45 11 56 67 21 65]
+Slice_2: []
+Slice_3: [0 0 0 0 0]
+Slice_4: [78 50 67 77]
+
+Slice: []
+复制的元素总数: 0
+
+Slice: [58 69 40 45 11]
+复制的元素总数: 5
+
+Slice: [58 69 40 45]
+复制的元素总数: 4
+
+Slice: [58 69 40 45 11 56 67 21 65]
+复制的元素总数: 4
+*/
+```
+
+#### 6.6切片作为函数参数
+
+切片将按值与切片的容量，长度一起传递给函数，并且切片的指针始终指向基础数组。 因此，如果我们对通过值传递给函数的切片进行了一些更改，则会反映在函数外部存在的切片中。
+
+```go
+package main
+
+import "fmt"
+
+func change(b []int) int {  //切片指针总是指向相同的引用（相同的底层数组）
+	b[2] = 100000
+	return len(b)
+}
+
+func main() {
+
+	a := []int{1, 2, 3, 4, 5}
+	length := change(a)
+	fmt.Printf("%d %v\n", length, a)
+
+}
+/*
+5 [1 2 100000 4 5]
+*/
+```
+
+```go
+package main
+
+import "fmt"
+
+func change(b []int) {
+	b = append(b, 1000)  //该添加操作未影响原数切片
+	fmt.Println(b)
+}
+
+func main() {
+
+	a := []int{1, 2, 3, 4, 5}
+	change(a)
+	fmt.Printf("%v\n", a)
+
+}
+/*
+[1 2 3 4 5 1000]
+[1 2 3 4 5]
+*/
+```
+
+#### 6.7切片比较
+
+在Go语言中，切片比数组更强大，灵活，方便，并且是轻量级的数据结构。在Go切片中，可以使用**Compare()**函数将两个**字节类型**（可以理解为字符）的切片彼此进行**比较**。此函数返回一个整数值，该整数值表示这些切片相等或不相等，并且这些值是：
+
+- 如果结果为0，则slice_1 == slice_2。
+- 如果结果为-1，则slice_1 <slice_2。
+- 如果结果为+1，则slice_1> slice_2。
+
+该函数在bytes包下定义，因此，您必须在程序中导入bytes包才能访问Compare函数。
+
+**语法：**
+
+```go
+func Compare(slice_1, slice_2 []byte) int
+```
+
+```go
+// 比较两个字节切片
+package main
+
+import (
+	"bytes"
+	"fmt"
+)
+
+func main() {
+
+	//使用简写声明创建和初始化字节切片
+
+	slice_1 := []byte{'G', 'E', 'E', 'K', 'S'}
+	slice_2 := []byte{'G', 'E', 'e', 'K', 'S'}
+
+	//比较切片
+
+	//使用Compare函数
+	res := bytes.Compare(slice_1, slice_2)
+
+	if res == 0 {
+		fmt.Println("!..切片相等..!")
+	} else {
+		fmt.Println(res)
+		fmt.Println("!..切片不相等..!")
+	}
+}
+
+/*
+-1
+!..切片不相等..!
+*/
+```
+
+#### 6.8切片排序
+
+Go语言使您可以根据切片的类型对切片的元素进行排序。因此，使用以下函数对int类型切片进行排序。这些函数在sort包下定义，因此，您必须在程序中导入sort包才能访问这些函数：
+
+- **1.**整数**：**此函数仅用于对整数切片进行排序，并按升序对切片中的元素进行排序。
+
+**语法：**
+
+```go
+func Ints(slc []int)     //slc为整数切片
+```
+
+```go
+//对整数进行排序
+package main 
+   
+import ( 
+    "fmt"
+    "sort"
+) 
+   
+// Main function 
+func main() { 
+       
+    //使用简写声明，创建和初始化切片
+    scl1 := []int{400, 600, 100, 300, 500, 200, 900} 
+    scl2 := []int{-23, 567, -34, 67, 0, 12, -5} 
+       
+    //显示切片
+    fmt.Println("Slices(Before):") 
+    fmt.Println("Slice 1: ", scl1) 
+    fmt.Println("Slice 2: ", scl2) 
+       
+    //对整数切片进行排序
+
+//使用Ints函数
+    sort.Ints (scl1) 
+    sort.Ints (scl2) 
+       
+    //显示结果
+    fmt.Println("\nSlices(After):") 
+    fmt.Println("Slice 1 : ", scl1) 
+    fmt.Println("Slice 2 : ",scl2) 
+}
+/*
+Slices(Before):
+Slice 1:  [400 600 100 300 500 200 900]
+Slice 2:  [-23 567 -34 67 0 12 -5]
+
+Slices(After):
+Slice 1 :  [100 200 300 400 500 600 900]
+Slice 2 :  [-34 -23 -5 0 12 67 567]
+*/
+```
+
+- **2. IntsAreSorted：**此函数用于检查给定的int切片是否为排序形式（按升序排列）。如果切片为排序形式，则此方法返回true；否则，如果切片未为排序形式，则返回false。
+
+**语法：**
+
+```go
+func IntsAreSorted(slc []int) bool
+```
+
+```go
+//Go程序说明如何检查
+//给定的int切片是否已排序
+package main
+
+import (
+    "fmt"
+    "sort"
+)
+
+func main() {
+
+    //创建和初始化切片
+
+    //使用简写声明
+    scl1 := []int{100, 200, 300, 400, 500, 600, 700}
+    scl2 := []int{-23, 567, -34, 67, 0, 12, -5}
+
+    //显示切片
+    fmt.Println("Slices:")
+    fmt.Println("切片1: ", scl1)
+    fmt.Println("切片2: ", scl2)
+
+    //检查切片是否为排序形式
+
+    //使用IntsAreSorted函数
+    res1 := sort.IntsAreSorted(scl1)
+    res2 := sort.IntsAreSorted(scl2)
+
+    //显示结果
+    fmt.Println("\nResult:")
+    fmt.Println("切片1是否已排序?: ", res1)
+    fmt.Println("切片2是否已排序?: ", res2)
+}
+
+/*
+Slices:
+切片1:  [100 200 300 400 500 600 700]
+切片2:  [-23 567 -34 67 0 12 -5]
+
+Result:
+切片1是否已排序?:  true
+切片2是否已排序?:  false
+*/
+```
+
+#### 6.9切片分割
 
 
 
