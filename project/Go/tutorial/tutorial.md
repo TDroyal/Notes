@@ -1069,6 +1069,68 @@ Student Marks:  50
 */
 ```
 
+#### 4.8 Defer关键字
+
+在Go语言中，defer语句会延迟[函数](https://www.cainiaoplus.com/golang/go-functions.html)或方法或[匿名方法](https://www.cainiaoplus.com/404.html)的执行，直到附近的函数返回为止。换句话说，延迟函数或方法调用参数会立即求值，但是它们会执行到附近的函数返回为止。您可以使用defer关键字创建延迟的方法，函数或匿名函数。
+
+**语法：**
+
+```go
+// 函数
+defer func func_name(parameter_list Type) return_type{
+    // Code
+}
+
+// 方法
+defer func (receiver Type) method_name(parameter_list){
+    // Code
+}
+
+defer func (parameter_list)(return_type){
+    // code
+}()
+```
+
+**注意事项：**
+
+- 在Go语言中，同一程序中允许多个defer语句，并且它们按**LIFO（后进先出）**顺序执行，如示例2所示。
+- 在defer语句中，将在执行defer语句时（而不是在调用它们时）评估参数。
+- defer语句通常用于确保在完成文件处理后关闭文件，关闭通道或捕获程序中的紧急情况。
+
+```go
+package main 
+  
+import "fmt"
+  
+// 函数
+func add(a1, a2 int) int { 
+    res := a1 + a2 
+    fmt.Println("Result: ", res) 
+    return 0 
+} 
+  
+func main() { 
+  
+    fmt.Println("Start") 
+  
+    //多个延迟语句
+    //以LIFO顺序执行
+    defer fmt.Println("End") 
+    defer add(34, 56) 
+    defer add(10, 10) 
+}
+/*
+Start
+Result:  20
+Result:  90
+End
+*/
+```
+
+
+
+
+
 ### 5.结构体
 
 #### 5.1基本概念
@@ -1218,7 +1280,7 @@ func main() {
 	}{
 		"royal", "123", 22,
 	}
-
+	
 	fmt.Printf("%T\n", user)
 	fmt.Println(user)
 }
@@ -2721,3 +2783,45 @@ func IndexByte(str string, b byte) int   //byte就是字符，例如：'c'
 ```
 
 在这里，*str*是原始字符串，*b*是一个字节，我们要查找其索引值。
+
+#### 7.8(重点)：读取一行字符串
+
+- 读一行字符串
+
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+    "bufio"
+)
+
+func main() {
+    s, _ := bufio.NewReader(os.Stdin).ReadString('\n')   //读入一行字符串
+    fmt.Println(len(s))
+}
+
+// 输入：I love Beijing.
+/*
+15
+*/
+```
+
+- `fmt.Scanf`  `fmt.Scan`等读数据不会自动清除最后的换行，更通用的读入：（好像有问题）
+
+```go
+package main
+import (
+	."fmt"
+    "os"
+    "bufio"
+)
+func main() {
+    reader := bufio.NewReader(os.Stdin)
+    //随便定义一个类型的变量
+    var ch string
+    Fscan(reader, &ch)
+}
+```
+
