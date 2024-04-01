@@ -555,6 +555,203 @@ func main() {
 */
 ```
 
+#### 3.5Go Select语句和deadlock死锁
+
+在Go语言中，select语句就像switch语句，但是在select语句中，case语句引用通信，即通道(信道chan)上的**发送或接收**操作。
+
+**语法：**
+
+```go
+select{
+    case SendOrReceive1: // 语句
+    case SendOrReceive2: // 语句
+    case SendOrReceive3: // 语句
+    .......
+    default: // Statement
+ }
+```
+
+**死锁：**当您试图从通道读取或写入数据但通道没有值时。因此，它阻塞goroutine的当前执行，并将控制传递给其他goroutine，但是如果没有其他goroutine可用或其他goroutine睡眠，由于这种情况，程序将崩溃。这种现象称为死锁。
+
+**信道：**信道chan是双向通信的，当发送方往信道喊话时，如果没有接收方接收该信道的消息，发送方就会进入阻塞状态并一直等待，直到有接收方来信道取走这个数据，发送方才会继续执行（被唤醒）。接收方亦是如此，如果信道里没有数据传过来，它会一直阻塞直到接收到信道里传来的数据。
+
+示例:
+
+```go
+package main
+
+func main() {
+
+    //创建通道
+    //出现死锁是因为没有goroutine在写
+    //因此，select语句被永远阻塞
+    c := make(chan int)
+    select {
+    case <-c:   //没有goroutine（轻量级线程（携程））往c信道发数据
+    }
+}
+```
+
+**输出：**
+
+```bash
+fatal error: all goroutines are asleep - deadlock!
+
+goroutine 1 [chan receive]:
+main.main()
+```
+
+为了避免这种情况，我们在select语句中使用默认case。换句话说，当程序中出现死锁时，将执行select语句的默认情况以避免死锁。如下例所示，我们在select语句中使用默认情况以避免死锁。
+
+示例:
+
+```go
+package main 
+  
+import "fmt"
+  
+func main() { 
+  
+    //创建通道
+    c := make(chan int) 
+    select { 
+    case <-c: 
+    default: 
+        fmt.Println("!.. Default case..!") 
+    } 
+}
+
+/*
+!.. Default case..!
+*/
+```
+
+**不同goroutine读写chan的速度不一样，如何让他们按自己的速度进行读写：**
+
+例子：
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	c1 := make(chan string)
+	c2 := make(chan string)
+
+	go func() {
+		for {
+			c1 <- "🐂"
+			time.Sleep(time.Millisecond * 500) //每0.5s往信道发送一次数据
+		}
+	}()
+
+	go func() {
+		for {
+			c2 <- "🐏"
+			time.Sleep(time.Microsecond * 2000) //每2s往信道发一次数据
+		}
+	}()
+	start := time.Now()
+	for {
+		fmt.Println(time.Since(start), <-c1)
+		fmt.Println(time.Since(start), <-c2)
+	}
+}
+/*
+0s 🐂
+0s 🐏
+0s 🐂
+506.0595ms 🐏
+2.0073228s 🐂
+2.0073228s 🐏
+4.0216007s 🐂
+4.0216007s 🐏
+6.029387s 🐂
+6.029387s 🐏
+8.0434833s 🐂
+8.0434833s 🐏
+10.0444728s 🐂
+10.0444728s 🐏
+12.0557536s 🐂
+12.0557536s 🐏
+14.0631639s 🐂
+14.0631639s 🐏
+16.0690597s 🐂
+...     可以看到数牛的任务和数羊的任务是交替进行的，为什么会这样？因为从c1，c2两个信道接收数据是依次顺序执行的，当从一个信道接收数据时，另一个goroutine处于阻塞状态。
+*/
+```
+
+**如果实现让他们依次按照自己写的速度进行下去：**
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	c1 := make(chan string)
+	c2 := make(chan string)
+
+	go func() {
+		for {
+			c1 <- "🐂"
+			time.Sleep(time.Millisecond * 500) //每0.5s往信道发送一次数据
+		}
+	}()
+
+	go func() {
+		for {
+			c2 <- "🐏"
+			time.Sleep(time.Microsecond * 2000) //每2s往信道发一次数据
+		}
+	}()
+	start := time.Now()
+	for {
+		select { //看哪个不阻塞就可以直接被运行，每次select只能匹配一个case 在select语句中，如果同时准备好处理多种情况，随机选择其中一种执行。
+		case msg1 := <-c1:
+			fmt.Println(time.Since(start), msg1)
+		case msg2 := <-c2:
+			fmt.Println(time.Since(start), msg2)
+		}
+	}
+}
+/*
+0s 🐂
+508.9µs 🐏
+512.4527ms 🐂
+1.0273803s 🐂
+1.5381367s 🐂
+2.0091653s 🐏
+2.0405138s 🐂
+2.5528212s 🐂
+3.0678698s 🐂
+3.5698039s 🐂
+4.023429s 🐏
+4.0708556s 🐂
+4.5837874s 🐂
+5.0877204s 🐂
+5.6005236s 🐂
+6.0265496s 🐏
+6.1055652s 🐂
+6.6201512s 🐂
+7.1221084s 🐂
+7.6334132s 🐂
+*/
+```
+
+
+
+
+
+
+
 ### 4.函数&方法
 
 #### 4.1函数声明
@@ -2823,5 +3020,505 @@ func main() {
     var ch string
     Fscan(reader, &ch)
 }
+```
+
+### 8.Go语言接口（Interfaces）(待学习)
+
+在Go语言中，该接口是一种自定义类型，用于指定一组一个或多个方法签名，并且该接口是抽象的，因此不允许您创建该接口的实例。换句话说，接口既是方法的集合，也是自定义类型。
+
+在Go语言中，您可以使用以下语法创建接口：
+
+```go
+type interface_name interface{
+
+    //方法签名
+}
+```
+
+**例如：**
+
+```go
+//创建一个接口
+type myinterface interface{
+    // 方法
+    fun1() int
+    fun2() float64
+}
+```
+
+此处，接口名称包含在type和interface关键字之间，方法签名包含在花括号之间。
+
+- 在Go语言中，为了实现接口，必须实现接口中声明的所有方法。go语言接口是隐式实现的。与其他语言一样，它不包含实现接口的任何特定关键字。如下例所示:
+
+```go
+// Golang程序说明如何
+//实现接口
+package main
+
+import "fmt"
+
+//创建一个接口
+type tank interface {
+
+    // 方法
+    Tarea() float64
+    Volume() float64
+}
+
+type myvalue struct {
+    radius float64
+    height float64
+}
+
+//实现方法
+//桶的（Tank）接口
+func (m myvalue) Tarea() float64 {
+
+    return 2*m.radius*m.height + 2*3.14*m.radius*m.radius
+}
+
+func (m myvalue) Volume() float64 {
+
+    return 3.14 * m.radius * m.radius * m.height
+}
+
+func main() {
+
+    // 访问使用桶的接口
+    var t tank
+    t = myvalue{10, 14}
+    fmt.Println("桶的面积 :", t.Tarea())
+    fmt.Println("桶的容量:", t.Volume())
+}
+/*
+桶的面积 : 908
+桶的容量: 4396
+*/
+
+```
+
+
+
+
+
+### 9.Go并发（Goroutines）
+
+Go语言提供了称为Goroutines的特殊功能。Goroutine是一种[函数](https://www.cainiaoplus.com/golang/go-functions.html)或方法，可与程序中存在的任何其他Goroutine一起**独立且同时**执行。换句话说，每个Go语言中同时执行的活动称为Goroutines，您可以将Goroutine视为轻量级线程。与线程相比，创建Goroutines的成本非常小。每个程序至少包含一个Goroutine，并且该Goroutine被称为**主Goroutine**。如果主Goroutine终止，则所有在主Goroutine之下运行的所有goroutine也将终止；Goroutine始终在后台运行。
+
+**Goroutines优点：**
+
+- Goroutine比线程开销小。
+- Goroutine存储在堆栈中，并且堆栈的大小可以根据程序的要求而增大和缩小。但是在线程中，堆栈的大小是固定的。
+- Goroutine可以使用通道进行通信，并且这些通道经过特殊设计，可以防止在使用Goroutines访问共享内存时出现争用情况。
+- 假设一个程序有一个线程，并且该线程有许多与之关联的Goroutine。如果由于资源需求，任何Goroutine阻塞了线程，则所有其余Goroutine将分配给新创建的OS线程。所有这些细节对程序员都是隐藏的。
+
+#### 9.2Go信道（channel）
+
+在Go语言中，main函数可以看成为一个主goroutine，通道是goroutine与另一个goroutine通信的媒介，并且这种通信是无锁的。换句话说，通道是一种技术，它允许一个goroutine将数据发送到另一个goroutine。默认情况下，通道是双向的，这意味着goroutine可以通过同一通道发送或接收数据，如下图所示：
+
+![image-20240327151721773](./../../../images/image-20240327151721773.png)
+
+- **创建信道：**
+
+在Go语言中，使用chan关键字创建通道，并且该通道只能传输相同类型的数据，不允许从同一通道传输不同类型的数据。
+
+```go
+var channel_name chan Type    //var channel1 chan string  该条信道只能用来传输string类型的数据
+channel_name:= make(chan Type)  //channel2 := make(chan int)  //该条信道只能用来传输int类型的数据
+```
+
+- **从信道发送或接收数据：**
+
+在Go语言中，通道工作有两个主要的操作，一个是发送，另一个是接收，这两个操作统称为通信。`<-`运算符的方向表示是接收数据还是发送数据。在通道中，默认情况下，发送和接收操作块直到另一端没有数据为止。它允许goroutine在没有显式锁或条件变量的情况下彼此同步。
+
+1. **发送操作：**发送操作用于在通道的帮助下将数据从一个goroutine发送到另一个goroutine。像int，float64和bool之类的值可以安全且容易地通过通道发送，因为它们是被复制的，因此不存在意外并发访问相同值的风险。同样，字符串也是安全的，因为它们是不可变的。但是，通过通道发送指针或引用（例如切片，map集合等）并不安全，因为指针或引用的值可能会通过同时发送goroutine或接收goroutine更改，并且结果无法预测。因此，在通道中使用指针或引用时，必须确保它们一次只能由一个goroutine访问。
+
+   ```go
+   Mychannel <- element
+   ```
+
+   上面的语句表明数据（element）在**<-**运算符的帮助下发送到通道（Mychannel）。
+
+2. **接收操作：**接收操作用于接收发送操作方发送的数据。
+
+   ```go
+   element := <-Mychannel
+   ```
+
+   上面的语句表明该元素从channel（Mychannel）接收数据。如果接收到的语句的结果不可用（不需要使用），则也是有效的语句。您还可以编写如下的receive语句：
+
+   ```go
+   <-Mychannel
+   ```
+
+- **关闭信道：**
+
+您也可以在close()函数的帮助下关闭通道。这是一个内置函数，并设置一个标识，表示不再有任何值将发送到该通道。
+
+**语法：**
+
+```go
+close(channel_name)
+```
+
+您也可以使用for循环关闭通道。在这里，接收器goroutine可以借助给定的语法检查通道是打开还是关闭：
+
+```go
+ele, ok:= <- Mychannel
+```
+
+在此，如果ok的值为true，则表示通道已打开，因此可以执行读取操作。并且，如果ok的值为false，则表示该通道已关闭，因此将不执行读取操作。
+
+示例:
+
+```go
+//Go程序说明如何
+//关闭使用的通道
+//range循环和关闭函数
+package main
+
+import "fmt"
+
+func myfun(mychnl chan string) {
+
+    for v := 0; v < 4; v++ {
+        mychnl <- "nhooo"
+    }
+    close(mychnl)
+}
+
+func main() {
+
+    //创建通道
+    c := make(chan string)
+
+    // 使用 Goroutine
+    go myfun(c)
+
+    //当ok的值为为true时，表示通道已打开，可以发送或接收数据
+    //当ok的值设置为false时，表示通道已关闭
+    for {
+        res, ok := <-c
+        if ok == false {
+            fmt.Println("通道关闭 ", ok)
+            break
+        }
+        fmt.Println("通道打开 ", res, ok)
+    }
+}
+/*
+通道打开  nhooo true
+通道打开  nhooo true
+通道打开  nhooo true
+通道打开  nhooo true
+通道关闭  false
+*/
+
+
+// 等价上面
+package main
+
+import "fmt"
+
+func myfun(mychnl chan string) {
+
+	for v := 0; v < 4; v++ {
+		mychnl <- "nhooo"
+	}
+	close(mychnl)
+}
+
+func main() {
+
+	//创建通道
+	c := make(chan string)
+
+	// 使用 Goroutine
+	go myfun(c)
+
+	//当ok的值为为true时，表示通道已打开，可以发送或接收数据
+	//当ok的值设置为false时，表示通道已关闭
+    // 主线程会一直阻塞在这个监听信道c的数据到来
+	for msg := range c {
+		fmt.Println(msg)
+	}
+}
+
+```
+
+- **重要的注意事项：**
+
+  - **阻止发送和接收：**在通道中，当数据发送到通道时，控制在发送语句中被阻塞，直到其他goroutine从该通道读取数据。类似地，当goroutine从通道接收数据时，read语句块直到另一条goroutine从该通道发送数据。
+
+  - **零值通道：**通道的零值为nil。
+
+  - **通道中的For循环：** for循环可以遍历通道上发送的顺序值，直到关闭为止。
+
+示例:
+
+```go
+package main 
+import "fmt"
+  
+func main() { 
+  
+    // 使用 make() 函数创建通道
+    mychnl := make(chan string) 
+  
+    // 匿名 goroutine 
+    go func() { 
+        mychnl <- "GFG"
+        mychnl <- "gfg"
+        mychnl <- "Geeks"
+        mychnl <- "nhooo"
+        close(mychnl) 
+    }() 
+  
+    //使用for循环
+    for res := range mychnl { 
+        fmt.Println(res) 
+    } 
+}
+/*
+GFG
+gfg
+Geeks
+nhooo
+*/
+```
+
+- **通道的长度：**在通道中，您可以使用*len()函数*找到通道的长度。在此，长度表示在通道缓冲区中排队的值的数量。
+
+```go
+package main 
+  
+import "fmt"
+
+func main() { 
+  
+    // 使用 make() 函数创建通道 
+    mychnl := make(chan string, 4) 
+    mychnl <- "GFG"
+    mychnl <- "gfg"
+    mychnl <- "Geeks"
+    mychnl <- "nhooo"
+
+    // 使用  len() 函数查找通道的长度 
+    fmt.Println("channel长度为: ", len(mychnl)) 
+}
+/*
+channel长度为:  4
+*/
+```
+
+- **通道的容量：**在通道中，您可以使用cap()函数找到通道的容量。在此，容量表示缓冲区的大小。
+
+  示例:
+
+  ```go
+  package main
+  
+  import "fmt"
+  
+  func main() {
+  
+  	// 使用 make() 函数创建通道
+  	mychnl := make(chan string, 4)
+  	mychnl <- "GFG"
+  	mychnl <- "gfg"
+  	mychnl <- "Geeks"
+  	// 使用
+  	fmt.Println("channel长度为: ", len(mychnl))
+  	fmt.Println("channel容量为: ", cap(mychnl))
+  }
+  /*
+  channel长度为:  3
+  channel容量为:  4
+  */
+  ```
+
+#### 9.3Go单向信道
+
+众所周知，通道是并发运行的goroutine之间的通信媒介，因此它们可以相互发送和接收数据。默认情况下，通道是双向的，但是您也可以创建单向通道。只能接收数据的通道或只能发送数据的通道，就是**单向通道**。单向通道也可以通过make()函数创建，如下所示：
+
+**只读与只写信道的意义：**
+
+​		方法或者函数参数控制只读只写，防止误操作。使用单向Channel作为函数参数或返回值，可以确保数据只能在指定的方向上流动，从而增强程序的安全性。
+
+​		**底层处理  效率也会更高：**通过将Channel限制为只能发送或只能接收数据，可以减少程序中的竞争条件和锁竞争，避免数据被错误地修改或引发死锁问题。
+
+**单向Channel的约束：**
+
+1. 只读或只写
+   通过将Channel的方向限制为只读或只写，可以防止在错误的地方修改数据，从而提高程序的安全性。例如，将一个只读的单向Channel传递给一个函数，保证该函数只能从该Channel中读取数据。
+2. 避免死锁
+   在使用单向Channel时，需要注意避免死锁问题。当一个Channel在发送数据和接收数据的代码中同时存在时，需要确保发送和接收的顺序正确，否则可能会导致程序死锁。
+
+```go
+//仅接收数据
+c1:= make(<- chan bool)
+
+//仅用于发送数据
+c2:= make(chan<-bool)
+```
+
+- 将双向通道转换为单向通道：
+
+```go
+package main 
+  
+import "fmt"
+  
+func sending(s chan<- string) {   // send-only只写信道
+    s <- "nhooo"
+} 
+  
+func main() { 
+  
+    //创建双向通道
+    mychanl := make(chan string) 
+  
+        //在这里，sending()函数将双向通道转换为仅发送通道 
+    go sending(mychanl) 
+  
+    //在这里，通道只在goroutine内部发送，而在goroutine之外，通道是双向的，所以它打印nhooo 
+    fmt.Println(<-mychanl) 
+}
+/*
+nhooo
+*/
+```
+
+
+
+### 10.并发实战：用goroutine实现查找电脑E盘中文件或文件名为test的有多少个（查找有读权限的所有文件）
+
+**暴力dfs查找即可：**
+
+```go
+// 写一个搜索文件或文件名为test的有多少个
+
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+)
+
+var filename = "test"
+var matches int
+
+func main() {
+	root_path := "E:\\"
+	start := time.Now()
+	dfs(root_path)
+
+	fmt.Println("matches: ", matches)
+	fmt.Println(time.Since(start))
+}
+
+func dfs(path string) {
+	files, err := os.ReadDir(path)
+	if err != nil {
+		return
+	}
+	for _, file := range files {
+		name := file.Name()
+		if name == filename {
+			matches++
+		}
+		if file.IsDir() {
+			dfs(path + name + "\\")
+		}
+	}
+}
+/*
+matches:  1585
+32.7398149s
+*/
+```
+
+**仔细一想，读取文件这个任务可以并行来做，利用好cpu的所有核（本电脑有6核），我们可以用多线程来实现，加快该任务的效率，同时最大化提高cpu的利用率：（待完成）**
+
+```go
+// 写一个搜索文件或文件名为test的有多少个
+
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+)
+
+var filename = "test"
+var matches int // 这个结果必须要准确，我们要避免多个线程同时对该数据进行写操作
+
+var workerCount = 0     //当前的线程数量, 这个应该也必须要准确
+var maxWorkerCount = 32 //本程序允许最多开的线程数量
+
+var searchRequest = make(chan string) //需要开线程来进行的搜索
+var workDone = make(chan bool)        //当前的线程工作已经完成
+var matchFile = make(chan bool)       //是否匹配上文件名
+// var lockWorkerCount = make(chan bool)       //当前是否需要使用workerCount这个变量，可以理解为mutex
+
+func main() {
+	root_path := "E:\\"
+	start := time.Now()
+	workerCount = 1
+	go dfs(root_path, true) //true表示当前这个搜索任务是线程做的
+	// 为了防止main这个主线程提前结束，需要等待所有的子线程执行完毕才能结束main主线程
+	waitForWorker()
+	fmt.Println("matches: ", matches)
+	fmt.Println(time.Since(start))
+}
+
+func waitForWorker() {
+	for {
+		select {
+		case path := <-searchRequest: //开线程去干活
+			workerCount++
+			go dfs(path, true)
+		case <-workDone:
+			workerCount--
+			if workerCount <= 0 {
+				return
+			}
+		case <-matchFile:
+			matches++
+			// case <-lockWorkerCount: //当前需要使用workCount请求，只从信道里面将这个信息读取了即可
+			// 	fmt.Println("当前的工人：", workerCount)
+		}
+	}
+}
+
+func dfs(path string, is_a_goroutine bool) {
+	files, err := os.ReadDir(path)
+	if err != nil { //有的文件可能没有权限
+		if is_a_goroutine { //当前这个线程的活提前干完了，就往信道喊话，我干完了
+			workDone <- true
+		}
+		return
+	}
+	for _, file := range files {
+		name := file.Name()
+		if name == filename {
+			matchFile <- true //当前找到一个，就往信道里面传消息过去，信道只能传一次数据，接收一次，不会冲突。当信道里面的数据没有被读取，其它线程（被阻塞）不能往该信道传数据，直到信道原先的数据被读取了。
+		}
+		if file.IsDir() {
+			// workerCount也是临界资源（最好加上互斥锁），可能存在几个goroutine同时判断 workerCount < maxWorkerCount然后导致开的线程数量会大于maxWorkerCount，不影响我们最终结果就行
+			if workerCount < maxWorkerCount {
+				searchRequest <- path + name + "\\"
+			} else {
+				dfs(path+name+"\\", false) //线程已经开到最大了，只能自己干了
+			}
+		}
+	}
+	if is_a_goroutine { //当前这个线程的活干完了，就往信道喊话，我干完了
+		workDone <- true
+	}
+}
+
 ```
 
